@@ -35,7 +35,7 @@ func (h *JobsHandler) Router() http.Handler {
 	return r
 }
 
-type createJobReq struct {
+type CreateJobReq struct {
 	OrgID    *int64   `json:"org_id"` // opsiyonel; multi-tenant için
 	Title    string   `json:"title"`
 	Company  string   `json:"company"`
@@ -44,8 +44,19 @@ type createJobReq struct {
 	Tags     []string `json:"tags"`
 }
 
+// @Summary      Create job
+// @Description  Yeni iş ilanı oluşturur
+// @Tags         jobs
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  CreateJobReq  true  "job payload"
+// @Success      201   {object}  repo.Job
+// @Failure      400   {object}  map[string]string
+// @Failure      401   {object}  map[string]string
+// @Router       /v1/jobs [post]
 func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
-	var req createJobReq
+	var req CreateJobReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
@@ -90,6 +101,18 @@ func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, job)
 }
 
+// @Summary      List jobs
+// @Description  İş ilanlarını listeler
+// @Tags         jobs
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        q       query     string  false  "arama"
+// @Param        limit   query     int     false  "limit (1-100)"
+// @Param        offset  query     int     false  "offset"
+// @Success      200     {object}  map[string]any
+// @Failure      401     {object}  map[string]string
+// @Router       /v1/jobs [get]
 func (h *JobsHandler) listJobs(w http.ResponseWriter, r *http.Request) {
 	// Query string: ?org_id=&q=&limit=&offset=
 	q := r.URL.Query()

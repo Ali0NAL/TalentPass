@@ -29,13 +29,23 @@ func (h *AuthHandler) Router() http.Handler {
 	return r
 }
 
-type registerReq struct {
+type RegisterReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// @Summary      Register
+// @Description  Yeni kullanıcı oluşturur ve access token döner
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RegisterReq  true  "register payload"
+// @Success      201   {object}  map[string]any
+// @Failure      400   {object}  map[string]string
+// @Failure      409   {object}  map[string]string
+// @Router       /v1/auth/register [post]
 func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
-	var req registerReq
+	var req RegisterReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
@@ -75,13 +85,24 @@ func (h *AuthHandler) register(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type loginReq struct {
+type LoginReq struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// @Summary      Login
+// @Description  E-posta/şifre ile giriş yapar ve access token döner
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  loginReq  true  "login payload"
+// @Success      200   {object}  map[string]any
+// @Failure      400   {object}  map[string]string
+// @Failure      401   {object}  map[string]string
+// @Router       /v1/auth/login [post]
+
 func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
-	var req loginReq
+	var req LoginReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return

@@ -5,34 +5,43 @@
 package repo
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 type Application struct {
-	ID           int64              `json:"id"`
-	JobID        int64              `json:"job_id"`
-	UserID       int64              `json:"user_id"`
-	Status       string             `json:"status"`
-	Notes        *string            `json:"notes"`
-	NextActionAt pgtype.Timestamptz `json:"next_action_at"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID           int64      `json:"id"`
+	JobID        int64      `json:"job_id"`
+	UserID       int64      `json:"user_id"`
+	Status       string     `json:"status"`
+	Notes        *string    `json:"notes"`
+	NextActionAt *time.Time `json:"next_action_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type Event struct {
+	ID            int64     `json:"id"`
+	UserID        *int64    `json:"user_id"`
+	ApplicationID *int64    `json:"application_id"`
+	Type          string    `json:"type"`
+	PayloadJson   []byte    `json:"payload_json"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type Job struct {
-	ID        int64              `json:"id"`
-	OrgID     *int64             `json:"org_id"`
-	Title     string             `json:"title"`
-	Company   string             `json:"company"`
-	Url       *string            `json:"url"`
-	Location  *string            `json:"location"`
-	Tags      []string           `json:"tags"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID        int64     `json:"id"`
+	OrgID     *int64    `json:"org_id"`
+	Title     string    `json:"title"`
+	Company   string    `json:"company"`
+	Url       *string   `json:"url"`
+	Location  *string   `json:"location"`
+	Tags      []string  `json:"tags"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Email        string             `json:"email"`
-	PasswordHash string             `json:"password_hash"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ID           int64     `json:"id"`
+	Email        string    `json:"email"`
+	PasswordHash string    `json:"password_hash"`
+	CreatedAt    time.Time `json:"created_at"`
 }

@@ -1,5 +1,16 @@
 package main
 
+// @title           TalentPass API
+// @version         1.0
+// @description     İş ilanı ve başvuru yönetimi API'si.
+// @schemes         http
+// @host            localhost:8080
+// @BasePath        /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer {token}
+
 import (
 	"context"
 	"errors"
@@ -13,6 +24,9 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	_ "github.com/Ali0NAL/talentpass/docs"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/Ali0NAL/talentpass/internal/config"
 	"github.com/Ali0NAL/talentpass/internal/db"
@@ -32,10 +46,10 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Base router + readiness
+	// Base router + health
 	r := httpx.NewBaseRouter()
 
-	// /readyz: kısa ping
+	// /readyz
 	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 		defer cancel()
@@ -47,17 +61,24 @@ func main() {
 		_, _ = w.Write([]byte("ready"))
 	})
 
+	// Swagger UI (hiç argüman yok!)
+	// İstersen URL'i sabitleyebilirsin:
+	// r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("http://localhost:"+cfg.Port+"/swagger/doc.json")))
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
+
 	// v1 routes
 	r.Route("/v1", func(r chi.Router) {
-		// Auth (açık)
 		ah := httpx.NewAuthHandler(pool)
 		r.Mount("/auth", ah.Router())
 
-		// Jobs (korumalı)
-		jh := httpx.NewJobsHandler(pool)
 		r.Group(func(pr chi.Router) {
 			pr.Use(httpx.RequireAuth)
+
+			jh := httpx.NewJobsHandler(pool)
 			pr.Mount("/jobs", jh.Router())
+
+			ap := httpx.NewApplicationsHandler(pool)
+			pr.Mount("/applications", ap.Router())
 		})
 	})
 

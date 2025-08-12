@@ -1,0 +1,336 @@
+basePath: /
+definitions:
+  github_com_Ali0NAL_talentpass_internal_repo.Application:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      job_id:
+        type: integer
+      next_action_at:
+        type: string
+      notes:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  github_com_Ali0NAL_talentpass_internal_repo.Job:
+    properties:
+      company:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      location:
+        type: string
+      org_id:
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  internal_http.CreateAppReq:
+    properties:
+      job_id:
+        type: integer
+      next_action_at:
+        description: RFC3339 (optional)
+        type: string
+      notes:
+        description: optional
+        type: string
+      status:
+        description: 'optional: applied/interview/offer/denied'
+        type: string
+    type: object
+  internal_http.CreateJobReq:
+    properties:
+      company:
+        type: string
+      location:
+        type: string
+      org_id:
+        description: opsiyonel; multi-tenant için
+        type: integer
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      url:
+        type: string
+    type: object
+  internal_http.RegisterReq:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_http.UpdateStatusReq:
+    properties:
+      status:
+        description: applied/interview/offer/denied
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: İş ilanı ve başvuru yönetimi API'si.
+  title: TalentPass API
+  version: "1.0"
+paths:
+  /healthz:
+    get:
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: ok
+          schema:
+            type: string
+      summary: Health
+      tags:
+      - meta
+  /v1/applications:
+    get:
+      consumes:
+      - application/json
+      description: Kullanıcının kendi başvurularını listeler
+      parameters:
+      - description: applied|interview|offer|denied
+        in: query
+        name: status
+        type: string
+      - description: limit (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List my applications
+      tags:
+      - applications
+    post:
+      consumes:
+      - application/json
+      description: Bir ilana başvuru oluşturur
+      parameters:
+      - description: application payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.CreateAppReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_Ali0NAL_talentpass_internal_repo.Application'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create application
+      tags:
+      - applications
+  /v1/applications/{id}:status:
+    patch:
+      consumes:
+      - application/json
+      description: Başvuru durumunu günceller
+      parameters:
+      - description: application id
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: status payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.UpdateStatusReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Ali0NAL_talentpass_internal_repo.Application'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update application status
+      tags:
+      - applications
+  /v1/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Yeni kullanıcı oluşturur ve access token döner
+      parameters:
+      - description: register payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.RegisterReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Register
+      tags:
+      - auth
+  /v1/jobs:
+    get:
+      consumes:
+      - application/json
+      description: İş ilanlarını listeler
+      parameters:
+      - description: arama
+        in: query
+        name: q
+        type: string
+      - description: limit (1-100)
+        in: query
+        name: limit
+        type: integer
+      - description: offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List jobs
+      tags:
+      - jobs
+    post:
+      consumes:
+      - application/json
+      description: Yeni iş ilanı oluşturur
+      parameters:
+      - description: job payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.CreateJobReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_Ali0NAL_talentpass_internal_repo.Job'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create job
+      tags:
+      - jobs
+schemes:
+- http
+securityDefinitions:
+  BearerAuth:
+    description: Bearer {token}
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
