@@ -1,11 +1,23 @@
 package auth
 
 import (
+	"errors"
 	"os"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
+
+var jwtSecret []byte
+
+func init() {
+	// .env içinde JWT_SECRET yoksa dev için fallback
+	sec := os.Getenv("JWT_SECRET")
+	if sec == "" {
+		sec = "dev-secret-change-me"
+	}
+	jwtSecret = []byte(sec)
+}
 
 type Claims struct {
 	UserID int64  `json:"uid"`
@@ -55,4 +67,22 @@ func Parse(tokenStr string) (*Claims, error) {
 		return c, nil
 	}
 	return nil, jwt.ErrTokenInvalidClaims
+}
+
+func NewAccessToken(userID int64, email string, ttl time.Duration) (string, error) {
+	if userID <= 0 {
+		return "", errors.New("invalid userID")
+	}
+	now := time.Now()
+	claims := Claims{
+		UserID: userID,
+		Email:  email,
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    "talentpass",
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+		},
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return tok.SignedString(jwtSecret)
 }

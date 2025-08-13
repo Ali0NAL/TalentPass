@@ -47,18 +47,48 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, erro
 	return i, err
 }
 
+const deleteJob = `-- name: DeleteJob :exec
+DELETE FROM jobs
+WHERE id = $1
+`
+
+func (q *Queries) DeleteJob(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteJob, id)
+	return err
+}
+
+const getJobByID = `-- name: GetJobByID :one
+SELECT id, org_id, title, company, url, location, tags, created_at
+FROM jobs
+WHERE id = $1
+`
+
+func (q *Queries) GetJobByID(ctx context.Context, id int64) (Job, error) {
+	row := q.db.QueryRow(ctx, getJobByID, id)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Title,
+		&i.Company,
+		&i.Url,
+		&i.Location,
+		&i.Tags,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listJobs = `-- name: ListJobs :many
 SELECT id, org_id, title, company, url, location, tags, created_at
 FROM jobs
-WHERE ($1::bigint IS NULL OR org_id = $1)
-  AND ($2::text IS NULL OR company ILIKE '%' || $2 || '%')
-  AND ($3::text   IS NULL OR title   ILIKE '%' || $3   || '%')
+WHERE ($1::text IS NULL OR company ILIKE '%' || $1 || '%')
+  AND ($2::text   IS NULL OR title   ILIKE '%' || $2   || '%')
 ORDER BY created_at DESC
-LIMIT $5 OFFSET $4
+LIMIT $4 OFFSET $3
 `
 
 type ListJobsParams struct {
-	OrgID   *int64  `json:"org_id"`
 	Company *string `json:"company"`
 	Title   *string `json:"title"`
 	Offset  int32   `json:"offset"`
@@ -67,7 +97,6 @@ type ListJobsParams struct {
 
 func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, error) {
 	rows, err := q.db.Query(ctx, listJobs,
-		arg.OrgID,
 		arg.Company,
 		arg.Title,
 		arg.Offset,
@@ -98,4 +127,49 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateJob = `-- name: UpdateJob :one
+UPDATE jobs
+SET
+  title    = COALESCE($1, title),
+  company  = COALESCE($2, company),
+  url      = COALESCE($3, url),
+  location = COALESCE($4, location),
+  tags     = COALESCE($5, tags),
+  updated_at = now()
+WHERE id = $6
+RETURNING id, org_id, title, company, url, location, tags, created_at
+`
+
+type UpdateJobParams struct {
+	Title    *string  `json:"title"`
+	Company  *string  `json:"company"`
+	Url      *string  `json:"url"`
+	Location *string  `json:"location"`
+	Tags     []string `json:"tags"`
+	ID       int64    `json:"id"`
+}
+
+func (q *Queries) UpdateJob(ctx context.Context, arg UpdateJobParams) (Job, error) {
+	row := q.db.QueryRow(ctx, updateJob,
+		arg.Title,
+		arg.Company,
+		arg.Url,
+		arg.Location,
+		arg.Tags,
+		arg.ID,
+	)
+	var i Job
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Title,
+		&i.Company,
+		&i.Url,
+		&i.Location,
+		&i.Tags,
+		&i.CreatedAt,
+	)
+	return i, err
 }

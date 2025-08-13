@@ -61,7 +61,6 @@ definitions:
       location:
         type: string
       org_id:
-        description: opsiyonel; multi-tenant için
         type: integer
       tags:
         items:
@@ -72,11 +71,38 @@ definitions:
       url:
         type: string
     type: object
+  internal_http.LoginReq:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_http.RefreshReq:
+    properties:
+      refresh_token:
+        type: string
+    type: object
   internal_http.RegisterReq:
     properties:
       email:
         type: string
       password:
+        type: string
+    type: object
+  internal_http.UpdateJobReq:
+    properties:
+      company:
+        type: string
+      location:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+      url:
         type: string
     type: object
   internal_http.UpdateStatusReq:
@@ -218,6 +244,79 @@ paths:
       summary: Update application status
       tags:
       - applications
+  /v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: E-posta/şifre ile giriş yapar ve access token döner
+      parameters:
+      - description: login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.LoginReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /v1/auth/refresh:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: refresh payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.RefreshReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              additionalProperties:
+                type: string
+              type: object
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              additionalProperties:
+                type: string
+              type: object
+            type: object
+      summary: Refresh access token
+      tags:
+      - auth
   /v1/auth/register:
     post:
       consumes:
@@ -255,19 +354,20 @@ paths:
       - auth
   /v1/jobs:
     get:
-      consumes:
-      - application/json
-      description: İş ilanlarını listeler
       parameters:
-      - description: arama
+      - description: filter by company (ILIKE)
         in: query
-        name: q
+        name: company
         type: string
-      - description: limit (1-100)
+      - description: filter by title (ILIKE)
+        in: query
+        name: title
+        type: string
+      - description: limit (default 20)
         in: query
         name: limit
         type: integer
-      - description: offset
+      - description: offset (default 0)
         in: query
         name: offset
         type: integer
@@ -279,12 +379,6 @@ paths:
           schema:
             additionalProperties: true
             type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       security:
       - BearerAuth: []
       summary: List jobs
@@ -293,7 +387,6 @@ paths:
     post:
       consumes:
       - application/json
-      description: Yeni iş ilanı oluşturur
       parameters:
       - description: job payload
         in: body
@@ -314,15 +407,77 @@ paths:
             additionalProperties:
               type: string
             type: object
-        "401":
-          description: Unauthorized
+      security:
+      - BearerAuth: []
+      summary: Create job
+      tags:
+      - jobs
+  /v1/jobs/{id}:
+    delete:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+      - BearerAuth: []
+      summary: Delete job
+      tags:
+      - jobs
+    get:
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Ali0NAL_talentpass_internal_repo.Job'
+        "404":
+          description: Not Found
           schema:
             additionalProperties:
               type: string
             type: object
       security:
       - BearerAuth: []
-      summary: Create job
+      summary: Get job by ID
+      tags:
+      - jobs
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: job payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_http.UpdateJobReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_Ali0NAL_talentpass_internal_repo.Job'
+      security:
+      - BearerAuth: []
+      summary: Update job
       tags:
       - jobs
 schemes:

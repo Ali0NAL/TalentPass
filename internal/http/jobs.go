@@ -14,47 +14,43 @@ import (
 )
 
 type JobsHandler struct {
-	queries *repo.Queries
-	pool    *pgxpool.Pool
+	q *repo.Queries
 }
 
 func NewJobsHandler(pool *pgxpool.Pool) *JobsHandler {
-	return &JobsHandler{
-		queries: repo.New(pool),
-		pool:    pool,
-	}
+	return &JobsHandler{q: repo.New(pool)}
 }
 
 func (h *JobsHandler) Router() http.Handler {
-	r := chi.NewRouter()
+	r := newSubrouter()
 
-	// /v1/jobs
-	r.Get("/", h.listJobs)
 	r.Post("/", h.createJob)
+	r.Get("/", h.listJobs)
+	r.Get("/{id}", h.getJob)
+	r.Put("/{id}", h.updateJob)
+	r.Delete("/{id}", h.deleteJob)
 
 	return r
 }
 
 type CreateJobReq struct {
-	OrgID    *int64   `json:"org_id"` // opsiyonel; multi-tenant için
+	OrgID    *int64   `json:"org_id,omitempty"`
 	Title    string   `json:"title"`
 	Company  string   `json:"company"`
-	URL      *string  `json:"url"`
-	Location *string  `json:"location"`
+	URL      *string  `json:"url,omitempty"`
+	Location *string  `json:"location,omitempty"`
 	Tags     []string `json:"tags"`
 }
 
-// @Summary      Create job
-// @Description  Yeni iş ilanı oluşturur
-// @Tags         jobs
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Param        body  body  CreateJobReq  true  "job payload"
-// @Success      201   {object}  repo.Job
-// @Failure      400   {object}  map[string]string
-// @Failure      401   {object}  map[string]string
-// @Router       /v1/jobs [post]
+// @Summary Create job
+// @Tags jobs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body CreateJobReq true "job payload"
+// @Success 201 {object} repo.Job
+// @Failure 400 {object} map[string]string
+// @Router /v1/jobs [post]
 func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
 	var req CreateJobReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -62,112 +58,198 @@ func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Title == "" || req.Company == "" {
-		writeError(w, http.StatusBadRequest, "title and company are required")
+		writeError(w, http.StatusBadRequest, "title and company required")
 		return
+	}
+	if req.Tags == nil {
+		req.Tags = []string{}
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	orgID := (*int64)(nil)
-	if req.OrgID != nil {
-		orgID = req.OrgID
-	}
-
-	url := (*string)(nil)
-	if req.URL != nil {
-		url = req.URL
-	}
-
-	loc := (*string)(nil)
-	if req.Location != nil {
-		loc = req.Location
-	}
-
-	args := repo.CreateJobParams{
-		OrgID:    orgID,
+	job, err := h.q.CreateJob(ctx, repo.CreateJobParams{
+		OrgID:    req.OrgID,
 		Title:    req.Title,
 		Company:  req.Company,
-		Url:      url,
-		Location: loc,
+		Url:      req.URL,
+		Location: req.Location,
 		Tags:     req.Tags,
-	}
-
-	job, err := h.queries.CreateJob(ctx, args)
+	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "db error: "+err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusCreated, job)
 }
 
-// @Summary      List jobs
-// @Description  İş ilanlarını listeler
-// @Tags         jobs
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Param        q       query     string  false  "arama"
-// @Param        limit   query     int     false  "limit (1-100)"
-// @Param        offset  query     int     false  "offset"
-// @Success      200     {object}  map[string]any
-// @Failure      401     {object}  map[string]string
-// @Router       /v1/jobs [get]
+// @Summary List jobs
+// @Tags jobs
+// @Security BearerAuth
+// @Produce json
+// @Param company query string false "filter by company (ILIKE)"
+// @Param title   query string false "filter by title (ILIKE)"
+// @Param limit   query int    false "limit (default 20)"
+// @Param offset  query int    false "offset (default 0)"
+// @Success 200 {object} map[string]any
+// @Router /v1/jobs [get]
 func (h *JobsHandler) listJobs(w http.ResponseWriter, r *http.Request) {
-	// Query string: ?org_id=&q=&limit=&offset=
 	q := r.URL.Query()
-
-	var orgID *int64
-	if s := q.Get("org_id"); s != "" {
-		if v, err := strconv.ParseInt(s, 10, 64); err == nil {
-			orgID = &v
-		}
-	}
-
-	// q'yu hem company hem title için kullan
-	var needle *string
-	if s := q.Get("q"); s != "" {
-		needle = &s
-	}
+	company := q.Get("company")
+	title := q.Get("title")
 
 	limit := int32(20)
-	if s := q.Get("limit"); s != "" {
-		if v, err := strconv.ParseInt(s, 10, 32); err == nil && v > 0 && v <= 100 {
-			limit = int32(v)
+	offset := int32(0)
+	if v := q.Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 && n <= 100 {
+			limit = int32(n)
 		}
 	}
-	offset := int32(0)
-	if s := q.Get("offset"); s != "" {
-		if v, err := strconv.ParseInt(s, 10, 32); err == nil && v >= 0 {
-			offset = int32(v)
+	if v := q.Get("offset"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			offset = int32(n)
 		}
+	}
+
+	var companyPtr *string
+	if company != "" {
+		companyPtr = &company
+	}
+	var titlePtr *string
+	if title != "" {
+		titlePtr = &title
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
-	company := (*string)(nil)
-	title := (*string)(nil)
-	if needle != nil {
-		company = needle
-		title = needle
-	}
-
-	rows, err := h.queries.ListJobs(ctx, repo.ListJobsParams{
-		OrgID:   orgID,
-		Company: company,
-		Title:   title,
+	items, err := h.q.ListJobs(ctx, repo.ListJobsParams{
+		Company: companyPtr,
+		Title:   titlePtr,
 		Limit:   limit,
 		Offset:  offset,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "db error: "+err.Error())
+		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items": rows,
-		// Basit sayfalama bilgisi
+		"items":  items,
 		"limit":  limit,
 		"offset": offset,
 	})
+}
+
+// @Summary Get job by ID
+// @Tags jobs
+// @Security BearerAuth
+// @Produce json
+// @Param id path int true "Job ID"
+// @Success 200 {object} repo.Job
+// @Failure 404 {object} map[string]string
+// @Router /v1/jobs/{id} [get]
+func (h *JobsHandler) getJob(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	job, err := h.q.GetJobByID(ctx, id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "job not found")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, job)
+}
+
+type UpdateJobReq struct {
+	Title    *string   `json:"title,omitempty"`
+	Company  *string   `json:"company,omitempty"`
+	URL      *string   `json:"url,omitempty"`
+	Location *string   `json:"location,omitempty"`
+	Tags     *[]string `json:"tags,omitempty"`
+}
+
+// @Summary Update job
+// @Tags jobs
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path int true "Job ID"
+// @Param body body UpdateJobReq true "job payload"
+// @Success 200 {object} repo.Job
+// @Router /v1/jobs/{id} [put]
+func (h *JobsHandler) updateJob(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	var req UpdateJobReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	params := repo.UpdateJobParams{
+		ID: id,
+	}
+	if req.Title != nil {
+		params.Title = req.Title
+	}
+	if req.Company != nil {
+		params.Company = req.Company
+	}
+	if req.URL != nil {
+		params.Url = req.URL
+	}
+	if req.Location != nil {
+		params.Location = req.Location
+	}
+	if req.Tags != nil {
+		params.Tags = *req.Tags
+	}
+
+	job, err := h.q.UpdateJob(ctx, params)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+// @Summary Delete job
+// @Tags jobs
+// @Security BearerAuth
+// @Param id path int true "Job ID"
+// @Success 204 "No Content"
+// @Router /v1/jobs/{id} [delete]
+func (h *JobsHandler) deleteJob(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	if err := h.q.DeleteJob(ctx, id); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

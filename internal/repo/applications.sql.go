@@ -55,19 +55,6 @@ ORDER BY created_at DESC
 LIMIT $4 OFFSET $3
 `
 
-// @Summary      List my applications
-// @Description  Kullanıcının kendi başvurularını listeler
-// @Tags         applications
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Param        status  query     string  false  "applied|interview|offer|denied"
-// @Param        limit   query     int     false  "limit (1-100)"
-// @Param        offset  query     int     false  "offset"
-// @Success      200     {object}  map[string]any
-// @Failure      401     {object}  map[string]string
-// @Router       /v1/applications [get]
-
 type ListApplicationsByUserParams struct {
 	UserID int64   `json:"user_id"`
 	Status *string `json:"status"`

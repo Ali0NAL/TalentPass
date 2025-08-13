@@ -61,9 +61,6 @@ func main() {
 		_, _ = w.Write([]byte("ready"))
 	})
 
-	// Swagger UI (hiç argüman yok!)
-	// İstersen URL'i sabitleyebilirsin:
-	// r.Get("/swagger/*", httpSwagger.Handler(httpSwagger.URL("http://localhost:"+cfg.Port+"/swagger/doc.json")))
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	// v1 routes

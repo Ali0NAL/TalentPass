@@ -26,6 +26,7 @@ func (h *AuthHandler) Router() http.Handler {
 	r := newSubrouter()
 	r.Post("/register", h.register)
 	r.Post("/login", h.login)
+	r.Post("/refresh", h.refresh)
 	return r
 }
 
@@ -95,12 +96,11 @@ type LoginReq struct {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        body  body  loginReq  true  "login payload"
+// @Param        body  body  LoginReq  true  "login payload"
 // @Success      200   {object}  map[string]any
 // @Failure      400   {object}  map[string]string
 // @Failure      401   {object}  map[string]string
 // @Router       /v1/auth/login [post]
-
 func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 	var req LoginReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -115,19 +115,124 @@ func (h *AuthHandler) login(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
+
 	u, err := h.q.GetUserByEmail(ctx, req.Email)
 	if err != nil || !auth.CheckPassword(u.PasswordHash, req.Password) {
 		writeError(w, http.StatusUnauthorized, "invalid credentials")
 		return
 	}
-	token, exp, err := auth.GenerateAccessToken(u.ID, u.Email)
+
+	// Access token üret
+	accessToken, accessExp, err := auth.GenerateAccessToken(u.ID, u.Email)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "token error")
 		return
 	}
+
+	// Refresh token üret + DB'ye kaydet
+	refreshPlain, refreshHash, refreshExp, err := auth.NewRefreshToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "token error")
+		return
+	}
+	if _, err := h.q.CreateRefreshToken(ctx, repo.CreateRefreshTokenParams{
+		UserID:    u.ID,
+		TokenHash: refreshHash,
+		ExpiresAt: refreshExp,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	// Cevap dön
 	writeJSON(w, http.StatusOK, map[string]any{
-		"user":         map[string]any{"id": u.ID, "email": u.Email},
-		"access_token": token,
-		"expires_at":   exp.UTC(),
+		"user":          map[string]any{"id": u.ID, "email": u.Email},
+		"access_token":  accessToken,
+		"access_exp":    accessExp.UTC(),
+		"refresh_token": refreshPlain,
+		"refresh_exp":   refreshExp.UTC(),
+	})
+}
+
+type RefreshReq struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// @Summary      Refresh access token
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  RefreshReq  true  "refresh payload"
+// @Success      200   {object}  map[string]any
+// @Failure      400   {object}  map[string]map[string]string
+// @Failure      401   {object}  map[string]map[string]string
+// @Router       /v1/auth/refresh [post]
+func (h *AuthHandler) refresh(w http.ResponseWriter, r *http.Request) {
+	var req RefreshReq
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	// Gelen plain refresh token'ı hash'le
+	hash := auth.HashRefreshToken(req.RefreshToken)
+
+	// DB'den refresh token kaydını çek
+	rt, err := h.q.GetRefreshTokenByHash(ctx, hash)
+	if err != nil {
+		// bulunamadı
+		writeError(w, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	// revoke ya da süresi geçmiş mi?
+	if rt.RevokedAt != nil || time.Now().After(rt.ExpiresAt) {
+		writeError(w, http.StatusUnauthorized, "token expired or revoked")
+		return
+	}
+
+	// Kullanıcıyı getir (GetUserByID sorgun yoksa eklemelisin)
+	user, err := h.q.GetUserByID(ctx, rt.UserID)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "user not found")
+		return
+	}
+
+	// Yeni access token üret
+	access, err := auth.NewAccessToken(user.ID, user.Email, time.Hour) // 1 saatlik access
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "token error")
+		return
+	}
+
+	// Rotation: eski refresh'i revoke et
+	if err := h.q.RevokeRefreshToken(ctx, rt.ID); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	// Yeni refresh üret ve kaydet
+	plain, newHash, exp, err := auth.NewRefreshToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "token error")
+		return
+	}
+	if _, err := h.q.CreateRefreshToken(ctx, repo.CreateRefreshTokenParams{
+		UserID:    rt.UserID,
+		TokenHash: newHash,
+		ExpiresAt: exp,
+	}); err != nil {
+		writeError(w, http.StatusInternalServerError, "db error")
+		return
+	}
+
+	// Cevap
+	writeJSON(w, http.StatusOK, map[string]any{
+		"access_token":  access,
+		"refresh_token": plain,
+		"expires_in":    3600,
 	})
 }
