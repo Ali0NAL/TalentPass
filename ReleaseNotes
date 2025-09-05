@@ -1,0 +1,63 @@
+📜 Sürüm Notları
+v0.1.0 (Mevcut)
+
+Auth sistemi (JWT) tamamlandı
+
+Jobs CRUD API yazıldı
+
+Applications CRUD API yazıldı
+
+Logging, rate limit ve middleware eklendi
+
+Docker Compose + Mailhog + Redis hazırlandı
+
+İlk migration seti eklendi
+
+v0.2.0 (Planlanan)
+
+Organizasyon API tamamlanacak
+
+jobs.updated_at migration dosyası eklenecek
+
+Unit testler yazılacak
+
+Redis cache aktif olacak
+
+
+📌 Yol Haritası
+✅ Tamamlananlar
+
+JWT tabanlı authentication
+
+Jobs CRUD
+
+Applications CRUD
+
+Logging & request tracing
+
+Rate limiting
+
+Docker Compose altyapısı
+
+Sağlık kontrolü endpoint
+
+⚡ Devam Edenler
+
+Organizasyon (Orgs) API
+
+jobs.updated_at migration dosyası resmi olarak eklenmesi
+
+Uygulama test senaryoları
+
+🚧 Planlananlar
+
+Redis cache entegrasyonu
+
+Frontend (React/Next.js)
+
+CI/CD (GitHub Actions)
+
+Production-ready config (CORS, rate limits)
+
+Unit & integration testler
+
