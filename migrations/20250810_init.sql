@@ -36,3 +36,15 @@ CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company);
 DROP TABLE IF EXISTS applications;
 DROP TABLE IF EXISTS jobs;
 DROP TABLE IF EXISTS users;
+
+
+
+
+
+
+
+
+
+
+
+

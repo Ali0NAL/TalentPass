@@ -20,3 +20,4 @@ WHERE org_id = $1 AND user_id = $2;
 
 -- name: GetOrganization :one
 SELECT * FROM organizations WHERE id = $1;
+-- name: DeleteOrganization :exec

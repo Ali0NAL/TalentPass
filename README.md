@@ -78,3 +78,36 @@ goose -dir ./migrations postgres "$env:DATABASE_URL" up
 
 # API başlat
 go run ./cmd/api
+
+
+
+📡 API Endpointleri
+Auth
+
+POST /v1/auth/register → kullanıcı kaydı
+
+POST /v1/auth/login → giriş yap ve JWT token al
+
+Jobs
+
+POST /v1/jobs → iş ilanı oluştur
+
+GET /v1/jobs → ilanları listele
+
+GET /v1/jobs/{id} → ilan detaylarını getir
+
+PUT /v1/jobs/{id} → ilan güncelle
+
+DELETE /v1/jobs/{id} → ilan sil
+
+Applications
+
+POST /v1/applications → başvuru yap
+
+GET /v1/applications → kendi başvurularını listele
+
+PATCH /v1/applications/{id}:status → başvuru durumunu güncelle
+
+Health
+
+GET /healthz → servis durumu
