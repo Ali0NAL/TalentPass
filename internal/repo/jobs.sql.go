@@ -12,7 +12,7 @@ import (
 const createJob = `-- name: CreateJob :one
 INSERT INTO jobs (org_id, title, company, url, location, tags)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, org_id, title, company, url, location, tags, created_at
+RETURNING id, org_id, title, company, url, location, tags, created_at, updated_at
 `
 
 type CreateJobParams struct {
@@ -43,6 +43,7 @@ func (q *Queries) CreateJob(ctx context.Context, arg CreateJobParams) (Job, erro
 		&i.Location,
 		&i.Tags,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -58,7 +59,7 @@ func (q *Queries) DeleteJob(ctx context.Context, id int64) error {
 }
 
 const getJobByID = `-- name: GetJobByID :one
-SELECT id, org_id, title, company, url, location, tags, created_at
+SELECT id, org_id, title, company, url, location, tags, created_at, updated_at
 FROM jobs
 WHERE id = $1
 `
@@ -75,12 +76,13 @@ func (q *Queries) GetJobByID(ctx context.Context, id int64) (Job, error) {
 		&i.Location,
 		&i.Tags,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const listJobs = `-- name: ListJobs :many
-SELECT id, org_id, title, company, url, location, tags, created_at
+SELECT id, org_id, title, company, url, location, tags, created_at, updated_at
 FROM jobs
 WHERE ($1::text IS NULL OR company ILIKE '%' || $1 || '%')
   AND ($2::text   IS NULL OR title   ILIKE '%' || $2   || '%')
@@ -118,6 +120,7 @@ func (q *Queries) ListJobs(ctx context.Context, arg ListJobsParams) ([]Job, erro
 			&i.Location,
 			&i.Tags,
 			&i.CreatedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -139,7 +142,7 @@ SET
   tags     = COALESCE($5, tags),
   updated_at = now()
 WHERE id = $6
-RETURNING id, org_id, title, company, url, location, tags, created_at
+RETURNING id, org_id, title, company, url, location, tags, created_at, updated_at
 `
 
 type UpdateJobParams struct {
@@ -170,6 +173,7 @@ func (q *Queries) UpdateJob(ctx context.Context, arg UpdateJobParams) (Job, erro
 		&i.Location,
 		&i.Tags,
 		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

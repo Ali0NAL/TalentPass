@@ -52,22 +52,48 @@ type CreateJobReq struct {
 // @Failure 400 {object} map[string]string
 // @Router /v1/jobs [post]
 func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
+	// Kullanıcı ID'sini context'ten al
+	uid, ok := UserIDFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// İstekten JSON gövdesini parse et
 	var req CreateJobReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
+
+	// Zorunlu alanlar kontrolü
 	if req.Title == "" || req.Company == "" {
 		writeError(w, http.StatusBadRequest, "title and company required")
 		return
 	}
+
+	// Tags boş ise default değer ata
 	if req.Tags == nil {
 		req.Tags = []string{}
 	}
 
+	// Timeout ile context oluştur
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 
+	// Eğer OrgID varsa, organizasyon üyesi mi kontrol et
+	if req.OrgID != nil {
+		role, err := h.q.GetOrgMemberRole(ctx, repo.GetOrgMemberRoleParams{
+			OrgID:  *req.OrgID,
+			UserID: uid,
+		})
+		if err != nil || role == "" {
+			writeError(w, http.StatusForbidden, "not a member of org")
+			return
+		}
+	}
+
+	// Yeni iş ilanı oluştur
 	job, err := h.q.CreateJob(ctx, repo.CreateJobParams{
 		OrgID:    req.OrgID,
 		Title:    req.Title,
@@ -80,6 +106,7 @@ func (h *JobsHandler) createJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+
 	writeJSON(w, http.StatusCreated, job)
 }
 

@@ -76,6 +76,10 @@ func main() {
 
 			ap := httpx.NewApplicationsHandler(pool)
 			pr.Mount("/applications", ap.Router())
+
+			oh := httpx.NewOrgsHandler(pool)
+			pr.Mount("/orgs", oh.Router())
+
 		})
 	})
 
