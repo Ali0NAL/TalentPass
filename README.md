@@ -52,7 +52,8 @@ Rate Limit Middleware → IP başına 120 istek/dk
 
 Sağlık kontrolü endpoint: /healthz
 
-📦 Kurulum
+# Kurulum
+
 Gereksinimler
 
 Go 1.22+
