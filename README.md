@@ -1,70 +1,64 @@
 # TalentPass
 
-TalentPass
+TalentPass, yazılım geliştiricilerin ve profesyonellerin iş
+başvurularını daha düzenli bir şekilde takip etmesini sağlayan modern
+bir backend servisidir.\
+Go dilinde yazılmıştır, PostgreSQL veritabanı kullanır ve Docker Compose
+ile kolayca ayağa kaldırılabilir.
 
-TalentPass, yazılım geliştiricilerin ve profesyonellerin iş başvurularını daha düzenli bir şekilde takip etmesini sağlayan modern bir backend servisidir.
-Go dilinde yazılmıştır, PostgreSQL veritabanı kullanır ve Docker Compose ile kolayca ayağa kaldırılabilir.
+------------------------------------------------------------------------
 
- Özellikler
- Kimlik Doğrulama
+## 🚀 Özellikler
 
-JWT tabanlı login/register akışı
+### 🔐 Kimlik Doğrulama
 
-Yetkilendirme middleware (RequireAuth)
+-   JWT tabanlı login/register akışı\
+-   Yetkilendirme middleware (`RequireAuth`)
 
- İş İlanları (Jobs)
+### 💼 İş İlanları (Jobs)
 
-İş ilanı oluşturma, listeleme, güncelleme ve silme
+-   İş ilanı oluşturma, listeleme, güncelleme ve silme\
+-   Tag ve filtreleme desteği\
+-   Alanlar: `title`, `company`, `url`, `location`, `tags`,
+    `created_at`, `updated_at`
 
-Tag ve filtreleme desteği
+### 📄 Başvurular (Applications)
 
-Alanlar: title, company, url, location, tags, created_at, updated_at
+-   Bir ilana başvuru yapma\
+-   Kullanıcının kendi başvurularını listeleme\
+-   Başvuru durumunu güncelleme (`applied`, `interview`, `offer`,
+    `denied`)\
+-   Opsiyonel takip tarihi: `next_action_at`
 
- Başvurular (Applications)
+### 🏢 Organizasyonlar (Orgs) *(yapım aşamasında)*
 
-Bir ilana başvuru yapma
+-   Organizasyon oluşturma\
+-   Üyelik ve rol yönetimi\
+-   Org bazlı iş ilanı yayınlama
 
-Kullanıcının kendi başvurularını listeleme
+### ⚙️ Altyapı
 
-Başvuru durumunu güncelleme (applied, interview, offer, denied)
+-   **PostgreSQL** → SQLC ile strongly-typed sorgular\
+-   **Redis** (planlanan) → caching ve oturum yönetimi\
+-   **Mailhog** → test amaçlı e-posta yakalama\
+-   **Zerolog** → structured logging\
+-   **Rate Limit Middleware** → IP başına 120 istek/dk\
+-   **Sağlık kontrolü** endpoint: `/healthz`
 
-Opsiyonel takip tarihi (next_action_at)
+------------------------------------------------------------------------
 
- Organizasyonlar (Orgs) (yapım aşamasında)
+## 🛠️ Kurulum
 
-Organizasyon oluşturma
+### Gereksinimler
 
-Üyelik ve rol yönetimi
+-   Go 1.22+\
+-   Docker & Docker Compose\
+-   PostgreSQL 15+\
+-   Goose (migration aracı)
 
-Org bazlı iş ilanı yayınlama
+### Adımlar
 
- Altyapı
-
-PostgreSQL → SQLC ile strongly-typed sorgular
-
-Redis (planlanan) → caching ve oturum yönetimi
-
-Mailhog → test amaçlı e-posta yakalama
-
-Zerolog → structured logging
-
-Rate Limit Middleware → IP başına 120 istek/dk
-
-Sağlık kontrolü endpoint: /healthz
-
-# Kurulum
-
-Gereksinimler
-
-Go 1.22+
-
-Docker & Docker Compose
-
-PostgreSQL 15+
-
-Goose (migration aracı)
-
-
+``` powershell
 # Ortam değişkenlerini ayarla
 $env:DATABASE_URL="postgres://postgres:postgres@localhost:5432/talentpass?sslmode=disable"
 $env:JWT_SECRET="dev-secret-change-me"
@@ -78,36 +72,34 @@ goose -dir ./migrations postgres "$env:DATABASE_URL" up
 
 # API başlat
 go run ./cmd/api
+```
 
+------------------------------------------------------------------------
 
+## 📡 API Endpointleri
 
-📡 API Endpointleri
-Auth
+### Auth
 
-POST /v1/auth/register → kullanıcı kaydı
+-   `POST /v1/auth/register` → kullanıcı kaydı\
+-   `POST /v1/auth/login` → giriş yap ve JWT token al
 
-POST /v1/auth/login → giriş yap ve JWT token al
+### Jobs
 
-Jobs
+-   `POST /v1/jobs` → iş ilanı oluştur\
+-   `GET /v1/jobs` → ilanları listele\
+-   `GET /v1/jobs/{id}` → ilan detaylarını getir\
+-   `PUT /v1/jobs/{id}` → ilan güncelle\
+-   `DELETE /v1/jobs/{id}` → ilan sil
 
-POST /v1/jobs → iş ilanı oluştur
+### Applications
 
-GET /v1/jobs → ilanları listele
+-   `POST /v1/applications` → başvuru yap\
+-   `GET /v1/applications` → kendi başvurularını listele\
+-   `PATCH /v1/applications/{id}:status` → başvuru durumunu güncelle
 
-GET /v1/jobs/{id} → ilan detaylarını getir
+### Health
 
-PUT /v1/jobs/{id} → ilan güncelle
+-   `GET /healthz` → servis durumu\
+    \`\`\`
 
-DELETE /v1/jobs/{id} → ilan sil
-
-Applications
-
-POST /v1/applications → başvuru yap
-
-GET /v1/applications → kendi başvurularını listele
-
-PATCH /v1/applications/{id}:status → başvuru durumunu güncelle
-
-Health
-
-GET /healthz → servis durumu
+------------------------------------------------------------------------
