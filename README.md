@@ -8,7 +8,7 @@ ile kolayca ayağa kaldırılabilir.
 
 ------------------------------------------------------------------------
 
-## 🚀 Özellikler
+##  Özellikler
 
 ### 🔐 Kimlik Doğrulama
 
