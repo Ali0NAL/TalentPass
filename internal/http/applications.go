@@ -215,8 +215,8 @@ func (h *ApplicationsHandler) updateStatus(w http.ResponseWriter, r *http.Reques
 		"updated_at":     app.UpdatedAt,
 	})
 	_, _ = h.q.CreateEvent(ctx, repo.CreateEventParams{
-		UserID:        &uid,
-		ApplicationID: &appID,
+		UserID:        uid,
+		ApplicationID: appID,
 		Type:          "application.status.changed",
 		PayloadJson:   payload,
 	})

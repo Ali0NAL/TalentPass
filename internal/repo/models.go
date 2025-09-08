@@ -5,6 +5,7 @@
 package repo
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -20,12 +21,12 @@ type Application struct {
 }
 
 type Event struct {
-	ID            int64     `json:"id"`
-	UserID        *int64    `json:"user_id"`
-	ApplicationID *int64    `json:"application_id"`
-	Type          string    `json:"type"`
-	PayloadJson   []byte    `json:"payload_json"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID            int64           `json:"id"`
+	UserID        int64           `json:"user_id"`
+	ApplicationID int64           `json:"application_id"`
+	Type          string          `json:"type"`
+	PayloadJson   json.RawMessage `json:"payload_json"`
+	CreatedAt     time.Time       `json:"created_at"`
 }
 
 type Job struct {

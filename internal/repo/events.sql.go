@@ -7,19 +7,25 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 )
 
 const createEvent = `-- name: CreateEvent :one
 INSERT INTO events (user_id, application_id, type, payload_json)
-VALUES ($1, $2, $3, $4)
+VALUES (
+  $1,
+  $2,
+  $3,
+  $4
+)
 RETURNING id, user_id, application_id, type, payload_json, created_at
 `
 
 type CreateEventParams struct {
-	UserID        *int64 `json:"user_id"`
-	ApplicationID *int64 `json:"application_id"`
-	Type          string `json:"type"`
-	PayloadJson   []byte `json:"payload_json"`
+	UserID        int64           `json:"user_id"`
+	ApplicationID int64           `json:"application_id"`
+	Type          string          `json:"type"`
+	PayloadJson   json.RawMessage `json:"payload_json"`
 }
 
 func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event, error) {
@@ -39,4 +45,46 @@ func (q *Queries) CreateEvent(ctx context.Context, arg CreateEventParams) (Event
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listEventsByApplication = `-- name: ListEventsByApplication :many
+SELECT id, user_id, application_id, type, payload_json, created_at
+FROM events
+WHERE application_id = $1
+ORDER BY created_at DESC
+LIMIT  $3
+OFFSET $2
+`
+
+type ListEventsByApplicationParams struct {
+	ApplicationID int64 `json:"application_id"`
+	Offset        int32 `json:"offset"`
+	Limit         int32 `json:"limit"`
+}
+
+func (q *Queries) ListEventsByApplication(ctx context.Context, arg ListEventsByApplicationParams) ([]Event, error) {
+	rows, err := q.db.Query(ctx, listEventsByApplication, arg.ApplicationID, arg.Offset, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Event
+	for rows.Next() {
+		var i Event
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ApplicationID,
+			&i.Type,
+			&i.PayloadJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

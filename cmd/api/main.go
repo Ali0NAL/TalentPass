@@ -26,11 +26,11 @@ import (
 	"github.com/rs/zerolog/log"
 
 	_ "github.com/Ali0NAL/talentpass/docs"
-	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/Ali0NAL/talentpass/internal/config"
 	"github.com/Ali0NAL/talentpass/internal/db"
 	httpx "github.com/Ali0NAL/talentpass/internal/http"
+	repo "github.com/Ali0NAL/talentpass/internal/repo"
 )
 
 func main() {
@@ -46,7 +46,10 @@ func main() {
 	}
 	defer pool.Close()
 
-	// Base router + health
+	// sqlc queries
+	q := repo.New(pool)
+
+	// Base router (+ /healthz, CORS, rate-limit, swagger vs. zaten NewBaseRouter içinde var)
 	r := httpx.NewBaseRouter()
 
 	// /readyz
@@ -61,13 +64,13 @@ func main() {
 		_, _ = w.Write([]byte("ready"))
 	})
 
-	r.Get("/swagger/*", httpSwagger.WrapHandler)
-
 	// v1 routes
 	r.Route("/v1", func(r chi.Router) {
+		// public
 		ah := httpx.NewAuthHandler(pool)
 		r.Mount("/auth", ah.Router())
 
+		// protected
 		r.Group(func(pr chi.Router) {
 			pr.Use(httpx.RequireAuth)
 
@@ -80,9 +83,16 @@ func main() {
 			oh := httpx.NewOrgsHandler(pool)
 			pr.Mount("/orgs", oh.Router())
 
+			// --- EVENTS: /v1/applications/{id}/events ---
+			eh := httpx.NewEventHandler(q)
+			pr.Route("/applications/{id}/events", func(r chi.Router) {
+				r.Post("/", eh.Create)
+				r.Get("/", eh.List)
+			})
 		})
 	})
 
+	// HTTP server
 	srv := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      r,
@@ -91,6 +101,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// run
 	go func() {
 		log.Info().Str("addr", srv.Addr).Msg("http server starting")
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -98,6 +109,7 @@ func main() {
 		}
 	}()
 
+	// graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
